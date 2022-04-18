@@ -32,15 +32,15 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 EPS = 1e-8
 
 NONLIN = {
-    "elu": nn.ELU,
-    "relu": nn.ReLU,
-    "leaky_relu": nn.LeakyReLU,
-    "selu": nn.SELU,
-    "sigmoid": nn.Sigmoid,
+    "elu": torch.nn.ELU,
+    "relu": torch.nn.ReLU,
+    "leaky_relu": torch.nn.LeakyReLU,
+    "selu": torch.nn.SELU,
+    "sigmoid": torch.nn.Sigmoid,
 }
 
 
-class BasicNet(nn.Module):
+class BasicNet(torch.nn.Module):
     """
     Basic hypothesis neural net.
 
@@ -55,7 +55,7 @@ class BasicNet(nn.Module):
     binary_y: bool, default False
         Whether the outcome is binary. Impacts the loss function.
     nonlin: string, default 'elu'
-        Nonlinearity to use in NN. Can be 'elu', 'relu', 'selu' or 'leaky_relu'.
+        Nonlinearity to use in torch.nn. Can be 'elu', 'relu', 'selu' or 'leaky_relu'.
     lr: float
         learning rate for optimizer. step_size equivalent in the JAX version.
     weight_decay: float
@@ -111,40 +111,40 @@ class BasicNet(nn.Module):
 
         if n_layers_out > 0:
             if batch_norm:
-                layers = [nn.Linear(n_unit_in, n_units_out), nn.BatchNorm1d(n_units_out), NL()]
+                layers = [torch.nn.Linear(n_unit_in, n_units_out), torch.nn.BatchNorm1d(n_units_out), NL()]
             else:
-                layers = [nn.Linear(n_unit_in, n_units_out), NL()]
+                layers = [torch.nn.Linear(n_unit_in, n_units_out), NL()]
 
             # add required number of layers
             for i in range(n_layers_out - 1):
                 if dropout:
-                    layers.extend([nn.Dropout(dropout_prob)])
+                    layers.extend([torch.nn.Dropout(dropout_prob)])
                 if batch_norm:
                         layers.extend(
                            [
-                            nn.Linear(n_units_out, n_units_out),
-                            nn.BatchNorm1d(n_units_out),
+                            torch.nn.Linear(n_units_out, n_units_out),
+                            torch.nn.BatchNorm1d(n_units_out),
                             NL(),
                         ]
                     )
                 else:
                     layers.extend(
                         [
-                            nn.Linear(n_units_out, n_units_out),
+                            torch.nn.Linear(n_units_out, n_units_out),
                             NL(),
                         ]
                     )
 
             # add final layers
-            layers.append(nn.Linear(n_units_out, 1))
+            layers.append(torch.nn.Linear(n_units_out, 1))
         else:
-            layers = [nn.Linear(n_unit_in, 1)]
+            layers = [torch.nn.Linear(n_unit_in, 1)]
 
         if binary_y:
-            layers.append(nn.Sigmoid())
+            layers.append(torch.nn.Sigmoid())
 
         # return final architecture
-        self.model = nn.Sequential(*layers).to(DEVICE)
+        self.model = torch.nn.Sequential(*layers).to(DEVICE)
         self.binary_y = binary_y
 
         self.n_iter = n_iter
@@ -203,7 +203,7 @@ class BasicNet(nn.Module):
                 if weight is not None:
                     weight_next = weight[idx_next].detach()
 
-                loss = nn.BCELoss(weight=weight_next) if self.binary_y else nn.MSELoss()
+                loss = torch.nn.BCELoss(weight=weight_next) if self.binary_y else torch.nn.MSELoss()
 
                 preds = self.forward(X_next).squeeze()
 
@@ -220,7 +220,7 @@ class BasicNet(nn.Module):
             train_loss = torch.Tensor(train_loss).to(DEVICE)
 
             if self.early_stopping or i % self.n_iter_print == 0:
-                loss = nn.BCELoss() if self.binary_y else nn.MSELoss()
+                loss = torch.nn.BCELoss() if self.binary_y else torch.nn.MSELoss()
                 with torch.no_grad():
                     preds = self.forward(X_val).squeeze()
                     val_loss = loss(preds, y_val)
@@ -249,7 +249,7 @@ class BasicNet(nn.Module):
             return torch.from_numpy(np.asarray(X)).to(DEVICE)
 
 
-class RepresentationNet(nn.Module):
+class RepresentationNet(torch.nn.Module):
     """
     Basic representation neural net
 
@@ -262,7 +262,7 @@ class RepresentationNet(nn.Module):
     n_units: int
         Number of hidden units in each representation layer
     nonlin: string, default 'elu'
-        Nonlinearity to use in NN. Can be 'elu', 'relu', 'selu' or 'leaky_relu'.
+        Nonlinearity to use in torch.nn. Can be 'elu', 'relu', 'selu' or 'leaky_relu'.
     """
 
     def __init__(
@@ -280,23 +280,23 @@ class RepresentationNet(nn.Module):
         NL = NONLIN[nonlin]
 
         if batch_norm:
-            layers = [nn.Linear(n_unit_in, n_units), nn.BatchNorm1d(n_units), NL()]
+            layers = [torch.nn.Linear(n_unit_in, n_units), torch.nn.BatchNorm1d(n_units), NL()]
         else:
-            layers = [nn.Linear(n_unit_in, n_units), NL()]
+            layers = [torch.nn.Linear(n_unit_in, n_units), NL()]
         # add required number of layers
         for i in range(n_layers - 1):
             if batch_norm:
-                layers.extend([nn.Linear(n_units, n_units), nn.BatchNorm1d(n_units), NL()])
+                layers.extend([torch.nn.Linear(n_units, n_units), torch.nn.BatchNorm1d(n_units), NL()])
             else:
-                layers.extend([nn.Linear(n_units, n_units), NL()])
+                layers.extend([torch.nn.Linear(n_units, n_units), NL()])
 
-        self.model = nn.Sequential(*layers).to(DEVICE)
+        self.model = torch.nn.Sequential(*layers).to(DEVICE)
 
     def forward(self, X: torch.Tensor) -> torch.Tensor:
         return self.model(X)
 
 
-class PropensityNet(nn.Module):
+class PropensityNet(torch.nn.Module):
     """
     Basic propensity neural net
 
@@ -316,7 +316,7 @@ class PropensityNet(nn.Module):
         Number of hypothesis layers for propensity score(n_layers_out x n_units_out + 1 x Dense
         layer)
     nonlin: string, default 'elu'
-        Nonlinearity to use in NN. Can be 'elu', 'relu', 'selu' or 'leaky_relu'.
+        Nonlinearity to use in torch.nn. Can be 'elu', 'relu', 'selu' or 'leaky_relu'.
     lr: float
         learning rate for optimizer. step_size equivalent in the JAX version.
     weight_decay: float
@@ -371,45 +371,45 @@ class PropensityNet(nn.Module):
 
         if batch_norm:
             layers = [
-            nn.Linear(in_features=n_unit_in, out_features=n_units_out_prop),
-            nn.BatchNorm1d(n_units_out_prop),
+            torch.nn.Linear(in_features=n_unit_in, out_features=n_units_out_prop),
+            torch.nn.BatchNorm1d(n_units_out_prop),
             NL(),
             ]
         else:
             layers = [
-                nn.Linear(in_features=n_unit_in, out_features=n_units_out_prop),
+                torch.nn.Linear(in_features=n_unit_in, out_features=n_units_out_prop),
                 NL(),
             ]
 
         for i in range(n_layers_out_prop - 1):
             if dropout:
-                layers.extend([nn.Dropout(dropout_prob)])
+                layers.extend([torch.nn.Dropout(dropout_prob)])
             if batch_norm:
                 layers.extend(
                 [
-                    nn.Linear(
+                    torch.nn.Linear(
                         in_features=n_units_out_prop, out_features=n_units_out_prop
                     ),
-                    nn.BatchNorm1d(n_units_out_prop),
+                    torch.nn.BatchNorm1d(n_units_out_prop),
                     NL(),
                 ]
             )
             else:
                 layers.extend(
                     [
-                        nn.Linear(
+                        torch.nn.Linear(
                             in_features=n_units_out_prop, out_features=n_units_out_prop
                         ),NL(),
                     ]
                 )
         layers.extend(
             [
-                nn.Linear(in_features=n_units_out_prop, out_features=n_unit_out),
-                nn.Softmax(dim=-1),
+                torch.nn.Linear(in_features=n_units_out_prop, out_features=n_unit_out),
+                torch.nn.Softmax(dim=-1),
             ]
         )
 
-        self.model = nn.Sequential(*layers).to(DEVICE)
+        self.model = torch.nn.Sequential(*layers).to(DEVICE)
         self.name = name
         self.weighting_strategy = weighting_strategy
         self.n_iter = n_iter
@@ -436,7 +436,7 @@ class PropensityNet(nn.Module):
         return compute_importance_weights(p_pred, w, self.weighting_strategy, {})
 
     def loss(self, y_pred: torch.Tensor, y_target: torch.Tensor) -> torch.Tensor:
-        return nn.NLLLoss()(torch.log(y_pred + EPS), y_target)
+        return torch.nn.NLLLoss()(torch.log(y_pred + EPS), y_target)
 
     def train(self, X: torch.Tensor, y: torch.Tensor) -> "PropensityNet":
         X = self._check_tensor(X)
@@ -511,7 +511,7 @@ class PropensityNet(nn.Module):
             return torch.from_numpy(np.asarray(X)).to(DEVICE)
 
 
-class BaseCATEEstimator(nn.Module):
+class BaseCATEEstimator(torch.nn.Module):
     """
     Interface for estimators of CATE.
 
